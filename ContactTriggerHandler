@@ -1,0 +1,136 @@
+public class UpdatedContactTriggerHandler {
+    
+    //Assignment 1
+    public static void checkNotMoreThan5ContactOnAccountBeforeInsert(List<Contact> conList){
+       	Set<Id> accIds = new Set<Id>();
+        for(Contact con: conList){
+            if(con.AccountId != null){
+                accIds.add(con.AccountId);
+            }
+        }
+        List<AggregateResult> AccountWiseContacts = [SELECT Count(LastName) numberOfContacts, AccountId
+                                                FROM Contact 
+                                                WHERE AccountId IN: accIds
+                                                GROUP BY AccountId];
+        
+        Map<Id, Integer> numOfConPreOnAcc = new Map<Id, Integer>();
+        for(AggregateResult r: AccountWiseContacts){
+            if(r.get('numberOfContacts') == null){
+                numOfConPreOnAcc.put((Id)r.get('AccountId'), (Integer)0);
+            }
+            numOfConPreOnAcc.put((Id)r.get('AccountId'), (Integer)r.get('numberOfContacts'));
+        }
+        
+        Map<Id, List<Contact>> accWiseContacts = new Map<Id, List<Contact>>();
+        for(Contact con: conList){
+            Integer numberOfContactsPresentOnAccount = numOfConPreOnAcc.get(con.AccountId);
+            if(accWiseContacts.containsKey(con.AccountId)){
+                List<Contact> ListedContacts = accWiseContacts.get(con.AccountId);
+                ListedContacts.add(con);
+                accWiseContacts.put(con.AccountId, ListedContacts);
+            }else{
+                List<Contact> cnew = new List<Contact>();
+                cnew.add(con);
+                accWiseContacts.put(con.AccountId, cnew);
+            }
+            Integer numberOfContactsToInsert = accWiseContacts.get(con.AccountId).size();
+            Integer totalContacts = numberOfContactsPresentOnAccount + numberOfContactsToInsert;
+            if(totalContacts > 5){
+                con.addError('More than 5 contacts cannot be added to a Account!!');
+            }
+        }
+    }
+    
+    public static void checkNotMoreThan5ContactOnAccountBeforeUpdate(List<Contact> conList, Map<Id, Contact> oldMap){
+        Set<Id> accIds = new Set<Id>();
+        for(Contact con: conList){
+            if(con.AccountId != null && con.AccountId != oldMap.get(con.Id).AccountId){
+                accIds.add(con.AccountId);
+            }
+        }
+        List<AggregateResult> AccountWiseContacts = [SELECT Count(LastName) numberOfContacts, AccountId
+                                                FROM Contact 
+                                                WHERE AccountId IN: accIds
+                                                GROUP BY AccountId];
+        
+        Map<Id, Integer> numOfConPreOnAcc = new Map<Id, Integer>();
+        for(AggregateResult r: AccountWiseContacts){
+            numOfConPreOnAcc.put((Id)r.get('AccountId'), (Integer)r.get('numberOfContacts'));
+        }
+        
+        Map<Id, List<Contact>> accWiseContacts = new Map<Id, List<Contact>>();
+        for(Contact con: conList){
+            Integer numberOfContactsPresentOnAccount = numOfConPreOnAcc.get(con.AccountId);
+            if(accWiseContacts.containsKey(con.AccountId)){
+                List<Contact> ListedContacts = accWiseContacts.get(con.AccountId);
+                ListedContacts.add(con);
+                accWiseContacts.put(con.AccountId, ListedContacts);
+            }else{
+                List<Contact> cnew = new List<Contact>();
+                cnew.add(con);
+                accWiseContacts.put(con.AccountId, cnew);
+            }
+            Integer numberOfContactsToInsert = accWiseContacts.get(con.AccountId).size();
+            Integer totalContacts = numberOfContactsPresentOnAccount + numberOfContactsToInsert;
+            if(totalContacts > 5){
+                con.addError('More than 5 contacts cannot be added to a Account!!');
+            }
+        }
+    }
+    
+    // Assignment 2
+    public static void checkOnlyOnePrimaryContactOnAccountBeforeInsert(List<Contact> conList){
+        
+        Set<Id> accIds = new Set<Id>();
+        for(Contact con: conList){
+            if(con.AccountId != null){
+                accIds.add(con.AccountId);
+            }
+        }
+        
+        List<Account> accounts = [Select Id, RelationShip_Status__c from Account where Id IN: accIds];
+        Map<Id, Boolean> primaryContactPresent = new Map<Id, Boolean>();
+        for(Account acc: accounts){
+            if(acc.RelationShip_Status__c != null){
+                primaryContactPresent.put(acc.Id, true);
+            }else{
+                primaryContactPresent.put(acc.Id, false);
+            }
+        }
+        
+        Map<Id, Boolean> primaryContactPresentOnInsertingData = new Map<Id, Boolean>();
+        for(Contact con: conList){
+            if(primaryContactPresent.get(con.AccountId) == true){
+                if(con.Primary_Contact__c == true){
+                    con.Primary_Contact__c = false;
+                }
+            }else{
+                if(primaryContactPresentOnInsertingData.containsKey(con.AccountId)){
+                    if(con.Primary_Contact__c == true){
+                        con.Primary_Contact__c = false;
+                    }                    
+                }else{
+                    if(con.Primary_Contact__c == true){
+                        primaryContactPresentOnInsertingData.put(con.AccountId, true);
+                    }
+                }
+            }
+        }
+        
+    }
+    
+    public static void updatePicklistOnAccountAfterInsert(List<Contact> conList){
+        Map<Id, String> accWiseRelationshipStatus = new Map<Id, String>();
+        for(Contact con: conList){
+            if(con.AccountId != null && con.Primary_Contact__c == true){
+                accWiseRelationshipStatus.put(con.AccountId, con.RelationShip_Status__c);
+            }
+        }
+        List<Account> accToBeUpdated = new List<Account>();
+        for(Account acc: [Select Id, RelationShip_Status__c From Account Where Id IN: accWiseRelationshipStatus.keySet()]){
+            acc.RelationShip_Status__c = accWiseRelationshipStatus.get(acc.Id);
+            accToBeUpdated.add(acc);
+        }
+        insert accToBeUpdated;
+    }
+}
