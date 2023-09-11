@@ -1,0 +1,15 @@
+trigger ContactTrigger on Contact (before insert, before update) {
+    if(Trigger.isBefore){
+        if(Trigger.isInsert){
+            UpdatedContactTriggerHandler.checkNotMoreThan5ContactOnAccountBeforeInsert(Trigger.New);
+            UpdatedContactTriggerHandler.checkOnlyOnePrimaryContactOnAccountBeforeInsert(Trigger.New);
+        }else if(Trigger.isUpdate){
+            UpdatedcontactTriggerHandler.checkNotMoreThan5ContactOnAccountBeforeUpdate(Trigger.New, Trigger.oldMap);
+        }
+    }
+    if(Trigger.isAfter){
+        if(Trigger.isInsert){
+            UpdatedContactTriggerHandler.updatePicklistOnAccountAfterInsert(Trigger.New);
+        
+    }
+}
